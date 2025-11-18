@@ -135,3 +135,133 @@ class SiteCrawler:
                     severity="error",
                     error_message=str(e)
                 )
+
+    def _extract_links(self, html: str, page_url: str) -> Set[str]:
+        """Extract all links and assets from HTML."""
+        soup = BeautifulSoup(html, 'html.parser')
+        links = set()
+
+        # Extract <a> tags
+        for tag in soup.find_all('a', href=True):
+            url = self._normalize_url(tag['href'], page_url)
+            if url:
+                links.add(url)
+
+        # Extract <img> tags
+        for tag in soup.find_all('img', src=True):
+            url = self._normalize_url(tag['src'], page_url)
+            if url:
+                links.add(url)
+
+        # Extract <link> tags (CSS)
+        for tag in soup.find_all('link', href=True):
+            url = self._normalize_url(tag['href'], page_url)
+            if url:
+                links.add(url)
+
+        # Extract <script> tags
+        for tag in soup.find_all('script', src=True):
+            url = self._normalize_url(tag['src'], page_url)
+            if url:
+                links.add(url)
+
+        return links
+
+    async def crawl(self) -> List[LinkResult]:
+        """Start crawling from the start URL."""
+        self.visited.clear()
+        self.results.clear()
+        self.pages_crawled = 0
+
+        # Queue of (url, depth) tuples
+        queue = [(self.start_url, 0)]
+
+        while queue:
+            # Process batch of URLs at same depth
+            current_batch = []
+            current_depth = queue[0][1] if queue else 0
+
+            while queue and queue[0][1] == current_depth:
+                url, depth = queue.pop(0)
+                if url not in self.visited:
+                    current_batch.append((url, depth))
+                    self.visited.add(url)
+
+            # Process batch concurrently
+            tasks = [
+                self._crawl_page(url, depth, queue)
+                for url, depth in current_batch
+            ]
+
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        return self.results
+
+    async def _crawl_page(
+        self,
+        url: str,
+        depth: int,
+        queue: List[tuple]
+    ):
+        """Crawl a single page and extract links."""
+        # Only fetch and parse pages from same domain
+        if not self._is_same_domain(url):
+            # Just check external links
+            result = await self._check_link(url, url)
+            self.results.append(result)
+            return
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.timeout,
+                follow_redirects=True
+            ) as client:
+                response = await client.get(url)
+
+                if response.status_code >= 400:
+                    self.results.append(LinkResult(
+                        source_url=url,
+                        target_url=url,
+                        link_type="page",
+                        status_code=response.status_code,
+                        response_time=response.elapsed.total_seconds(),
+                        severity="error",
+                        error_message=f"HTTP {response.status_code}"
+                    ))
+                    return
+
+                self.pages_crawled += 1
+
+                # Extract links from HTML
+                if 'text/html' in response.headers.get('content-type', ''):
+                    links = self._extract_links(response.text, url)
+
+                    # Check all links
+                    check_tasks = [
+                        self._check_link(url, link)
+                        for link in links
+                    ]
+
+                    link_results = await asyncio.gather(*check_tasks, return_exceptions=True)
+
+                    for result in link_results:
+                        if isinstance(result, LinkResult):
+                            self.results.append(result)
+
+                            # Queue same-domain pages for crawling if within depth
+                            if (depth < self.max_depth and
+                                result.link_type == "page" and
+                                result.severity != "error" and
+                                result.target_url not in self.visited):
+                                queue.append((result.target_url, depth + 1))
+
+        except Exception as e:
+            self.results.append(LinkResult(
+                source_url=url,
+                target_url=url,
+                link_type="page",
+                status_code=None,
+                response_time=0.0,
+                severity="error",
+                error_message=str(e)
+            ))

@@ -1,0 +1,9 @@
+# Example configuration file for site-health
+# Usage: site-health crawl --config config.yaml
+
+url: https://example.com
+depth: 2
+max_concurrent: 10
+timeout: 10.0
+respect_robots: true
+output_format: terminal

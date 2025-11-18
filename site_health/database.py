@@ -5,7 +5,7 @@ import aiosqlite
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from site_health.models import LinkResult, CrawlSummary
+from site_health.models import LinkResult, CrawlSummary, PageVitals
 
 
 class Database:
@@ -56,6 +56,26 @@ class Database:
                 ON link_results(severity)
             """)
 
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS page_vitals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    crawl_id INTEGER NOT NULL,
+                    url TEXT NOT NULL,
+                    lcp REAL,
+                    cls REAL,
+                    inp REAL,
+                    measured_at TIMESTAMP NOT NULL,
+                    status TEXT NOT NULL,
+                    error_message TEXT,
+                    FOREIGN KEY (crawl_id) REFERENCES crawls(id)
+                )
+            """)
+
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_vitals_crawl_id
+                ON page_vitals(crawl_id)
+            """)
+
             await conn.commit()
 
     async def create_crawl(self, start_url: str, max_depth: int) -> int:
@@ -91,6 +111,28 @@ class Database:
                     result.severity,
                     result.error_message,
                     datetime.now()
+                )
+            )
+            await conn.commit()
+
+    async def save_page_vitals(self, crawl_id: int, vitals: PageVitals):
+        """Save Core Web Vitals measurement for a page."""
+        async with aiosqlite.connect(self.db_path) as conn:
+            await conn.execute(
+                """
+                INSERT INTO page_vitals
+                (crawl_id, url, lcp, cls, inp, measured_at, status, error_message)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    crawl_id,
+                    vitals.url,
+                    vitals.lcp,
+                    vitals.cls,
+                    vitals.inp,
+                    vitals.measured_at,
+                    vitals.status,
+                    vitals.error_message
                 )
             )
             await conn.commit()
@@ -226,6 +268,33 @@ class Database:
                     errors=row["errors"] or 0,
                     warnings=row["warnings"] or 0,
                     status=row["status"]
+                )
+                for row in rows
+            ]
+
+    async def get_page_vitals(self, crawl_id: int) -> List[PageVitals]:
+        """Get all Core Web Vitals measurements for a crawl."""
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            cursor = await conn.execute(
+                """
+                SELECT * FROM page_vitals
+                WHERE crawl_id = ?
+                ORDER BY measured_at
+                """,
+                (crawl_id,)
+            )
+            rows = await cursor.fetchall()
+
+            return [
+                PageVitals(
+                    url=row["url"],
+                    lcp=row["lcp"],
+                    cls=row["cls"],
+                    inp=row["inp"],
+                    measured_at=datetime.fromisoformat(row["measured_at"]),
+                    status=row["status"],
+                    error_message=row["error_message"]
                 )
                 for row in rows
             ]

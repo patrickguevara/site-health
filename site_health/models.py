@@ -32,3 +32,49 @@ class CrawlSummary:
     errors: int
     warnings: int
     status: str  # 'running', 'completed', 'failed'
+
+
+@dataclass
+class PageVitals:
+    """Core Web Vitals measurements for a page."""
+
+    url: str
+    lcp: float | None  # Largest Contentful Paint (seconds)
+    cls: float | None  # Cumulative Layout Shift (score)
+    inp: float | None  # Interaction to Next Paint (milliseconds)
+    measured_at: datetime
+    status: str  # 'success', 'failed', 'pending'
+    error_message: str | None = None
+
+    def get_lcp_rating(self) -> str:
+        """Get LCP rating based on Google thresholds."""
+        if self.lcp is None:
+            return "unknown"
+        if self.lcp <= 2.5:
+            return "good"
+        elif self.lcp <= 4.0:
+            return "needs-improvement"
+        else:
+            return "poor"
+
+    def get_cls_rating(self) -> str:
+        """Get CLS rating based on Google thresholds."""
+        if self.cls is None:
+            return "unknown"
+        if self.cls <= 0.1:
+            return "good"
+        elif self.cls <= 0.25:
+            return "needs-improvement"
+        else:
+            return "poor"
+
+    def get_inp_rating(self) -> str:
+        """Get INP rating based on Google thresholds."""
+        if self.inp is None:
+            return "unknown"
+        if self.inp <= 200:
+            return "good"
+        elif self.inp <= 500:
+            return "needs-improvement"
+        else:
+            return "poor"

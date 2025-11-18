@@ -32,6 +32,7 @@ Options:
   --max-concurrent INTEGER Maximum concurrent requests (default: 10)
   --timeout FLOAT          Request timeout in seconds (default: 10.0)
   --format TEXT            Output format: terminal, html, json (default: terminal)
+  --vitals                 Measure Core Web Vitals (10% sample)
   --config PATH            Path to YAML configuration file
   --help                   Show this message and exit
 ```
@@ -42,8 +43,11 @@ Options:
 # Crawl with depth 3
 site-health crawl https://example.com --depth 3
 
-# Generate HTML report
-site-health crawl https://example.com --format html
+# Crawl with Core Web Vitals measurement
+site-health crawl https://example.com --vitals
+
+# Generate HTML report with vitals
+site-health crawl https://example.com --vitals --format html
 
 # Use custom timeout and concurrency
 site-health crawl https://example.com --timeout 30 --max-concurrent 20
@@ -149,6 +153,7 @@ The web interface provides a user-friendly way to manage crawls and view results
    - **Max Depth**: How deep to crawl (1-5 levels)
    - **Max Concurrent**: Number of parallel requests (1-50)
    - **Timeout**: Request timeout in seconds (5-60)
+   - **Measure Core Web Vitals**: Check to measure LCP, CLS, INP (10% sample)
 4. Click "Start Crawl"
 
 ### Viewing Crawl History
@@ -165,6 +170,67 @@ The crawl history table shows:
 ### Viewing Reports
 
 Click "View" to see the HTML report in a new tab, or "JSON" to download the raw data.
+
+## Core Web Vitals
+
+Site Health can measure Core Web Vitals using real browser automation powered by Playwright.
+
+### What are Core Web Vitals?
+
+Core Web Vitals are Google's metrics for measuring user experience:
+
+- **LCP (Largest Contentful Paint)**: How quickly the main content loads
+  - Good: ≤ 2.5s
+  - Needs Improvement: ≤ 4.0s
+  - Poor: > 4.0s
+
+- **CLS (Cumulative Layout Shift)**: Visual stability during page load
+  - Good: ≤ 0.1
+  - Needs Improvement: ≤ 0.25
+  - Poor: > 0.25
+
+- **INP (Interaction to Next Paint)**: Responsiveness to user interactions
+  - Good: ≤ 200ms
+  - Needs Improvement: ≤ 500ms
+  - Poor: > 500ms
+
+### Measuring Vitals
+
+Add the `--vitals` flag to any crawl:
+
+```bash
+site-health crawl https://example.com --vitals
+```
+
+**Sampling Strategy:**
+- Measures 10% of discovered pages (stratified sample)
+- Always includes: homepage and all depth-1 pages
+- Remaining pages selected randomly to reach 10%
+
+**Performance Impact:**
+- Vitals measurement requires browser automation (slower than link checking)
+- Expect ~2-5 pages/minute for vitals vs ~10-50 pages/minute for link checking
+- Example: 100-page site with vitals = ~3-5 minutes additional time
+
+### Viewing Vitals in Reports
+
+Reports automatically include Core Web Vitals data when measured:
+
+**Terminal Report:**
+- Average metrics with color coding
+- Individual page measurements
+- Failed measurement count
+
+**JSON Report:**
+- `vitals` array with all measurements
+- Includes ratings for each metric
+
+**HTML Report:**
+- Visual summary cards
+- Detailed table with color-coded values
+
+**Web Interface:**
+Check "Measure Core Web Vitals (10% sample)" when starting a crawl.
 
 ## Report Formats
 

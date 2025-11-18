@@ -23,6 +23,7 @@ def crawl(
     max_concurrent: Optional[int] = typer.Option(None, "--max-concurrent", help="Max concurrent requests"),
     timeout: Optional[float] = typer.Option(None, "--timeout", help="Request timeout in seconds"),
     no_robots: bool = typer.Option(False, "--no-robots", help="Ignore robots.txt"),
+    vitals: bool = typer.Option(False, "--vitals", help="Measure Core Web Vitals (10% sample)"),
     db_path: str = typer.Option("site_health.db", "--db", help="Database path"),
 ):
     """Crawl a website and check for broken links."""
@@ -35,6 +36,7 @@ def crawl(
         max_concurrent=max_concurrent,
         timeout=timeout,
         no_robots=no_robots,
+        vitals=vitals,
         db_path=db_path,
     ))
 
@@ -48,6 +50,7 @@ async def _crawl_async(
     max_concurrent: Optional[int],
     timeout: Optional[float],
     no_robots: bool,
+    vitals: bool,
     db_path: str,
 ):
     """Async implementation of crawl command."""
@@ -98,6 +101,36 @@ async def _crawl_async(
         # Save results to database
         for result in results:
             await db.save_link_result(crawl_id, result)
+
+        typer.echo(f"✓ Checked {len(results)} links")
+
+        # Measure Core Web Vitals if requested
+        if vitals:
+            typer.echo("\nMeasuring Core Web Vitals (10% sample)...")
+
+            from site_health.performance import PerformanceAnalyzer
+
+            # Get pages to measure
+            pages_to_measure = crawler.get_pages_for_vitals_measurement(sample_rate=0.1)
+            typer.echo(f"Selected {len(pages_to_measure)} pages for measurement")
+
+            # Measure vitals
+            async with PerformanceAnalyzer(timeout=30.0) as analyzer:
+                def progress_callback(current, total):
+                    typer.echo(f"  Progress: {current}/{total} pages measured")
+
+                vitals_results = await analyzer.measure_pages(
+                    pages_to_measure,
+                    progress_callback=progress_callback
+                )
+
+            # Save vitals
+            for vitals_result in vitals_results:
+                await db.save_page_vitals(crawl_id, vitals_result)
+
+            successful = sum(1 for v in vitals_results if v.status == "success")
+            failed = len(vitals_results) - successful
+            typer.echo(f"✓ Measured {successful} pages successfully ({failed} failed)")
 
         # Mark crawl as complete
         await db.complete_crawl(

@@ -20,6 +20,7 @@ class CrawlRequest(BaseModel):
     depth: int = 2
     max_concurrent: int = 10
     timeout: float = 10.0
+    vitals: bool = False
 
 
 class CrawlResponse(BaseModel):
@@ -61,6 +62,7 @@ def create_app(db_path: str = "site_health.db") -> FastAPI:
             depth=request.depth,
             max_concurrent=request.max_concurrent,
             timeout=request.timeout,
+            vitals=request.vitals,
             db=db,
         )
 
@@ -96,6 +98,7 @@ def create_app(db_path: str = "site_health.db") -> FastAPI:
             raise HTTPException(status_code=404, detail="Crawl not found")
 
         results = await db.get_link_results(crawl_id)
+        vitals = await db.get_page_vitals(crawl_id)
 
         return {
             "summary": {
@@ -120,7 +123,20 @@ def create_app(db_path: str = "site_health.db") -> FastAPI:
                     "error_message": r.error_message,
                 }
                 for r in results
-            ]
+            ],
+            "vitals": [
+                {
+                    "url": v.url,
+                    "lcp": v.lcp,
+                    "cls": v.cls,
+                    "inp": v.inp,
+                    "lcp_rating": v.get_lcp_rating(),
+                    "cls_rating": v.get_cls_rating(),
+                    "inp_rating": v.get_inp_rating(),
+                    "status": v.status,
+                }
+                for v in vitals
+            ] if vitals else []
         }
 
     @app.get("/api/crawls/{crawl_id}/report")
@@ -155,6 +171,7 @@ async def run_crawl(
     depth: int,
     max_concurrent: int,
     timeout: float,
+    vitals: bool,
     db: Database,
 ):
     """Run crawl in background task."""
@@ -171,6 +188,18 @@ async def run_crawl(
         # Save results
         for result in results:
             await db.save_link_result(crawl_id, result)
+
+        # Measure vitals if requested
+        if vitals:
+            from site_health.performance import PerformanceAnalyzer
+
+            pages_to_measure = crawler.get_pages_for_vitals_measurement(sample_rate=0.1)
+
+            async with PerformanceAnalyzer(timeout=30.0) as analyzer:
+                vitals_results = await analyzer.measure_pages(pages_to_measure)
+
+            for vitals_result in vitals_results:
+                await db.save_page_vitals(crawl_id, vitals_result)
 
         # Mark complete
         await db.complete_crawl(

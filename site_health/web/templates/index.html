@@ -48,6 +48,13 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="vitals" name="vitals">
+                        Measure Core Web Vitals (10% sample)
+                    </label>
+                </div>
+
                 <button type="submit" class="btn-primary">Start Crawl</button>
             </form>
 
@@ -95,7 +102,8 @@
                 url: formData.get('url'),
                 depth: parseInt(formData.get('depth')),
                 max_concurrent: parseInt(formData.get('maxConcurrent')),
-                timeout: parseFloat(formData.get('timeout'))
+                timeout: parseFloat(formData.get('timeout')),
+                vitals: document.getElementById('vitals').checked
             };
 
             try {

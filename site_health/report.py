@@ -109,7 +109,114 @@ class ReportGenerator:
             for link_type, count in sorted(by_type.items()):
                 lines.append(f"  {link_type}: {count}")
 
+        # Core Web Vitals section
+        vitals = await self.db.get_page_vitals(self.crawl_id)
+
+        if vitals:
+            lines.append("")
+            lines.append(f"{BOLD}=== Core Web Vitals ==={RESET}")
+
+            successful_vitals = [v for v in vitals if v.status == "success"]
+            failed_vitals = [v for v in vitals if v.status == "failed"]
+
+            if successful_vitals:
+                # Calculate summary statistics
+                lcp_values = [v.lcp for v in successful_vitals if v.lcp is not None]
+                cls_values = [v.cls for v in successful_vitals if v.cls is not None]
+                inp_values = [v.inp for v in successful_vitals if v.inp is not None]
+
+                if lcp_values:
+                    avg_lcp = sum(lcp_values) / len(lcp_values)
+                    lines.append(f"\nAverage LCP: {self._colorize_vitals(avg_lcp, 'lcp', RED, YELLOW, GREEN, RESET)}")
+
+                if cls_values:
+                    avg_cls = sum(cls_values) / len(cls_values)
+                    lines.append(f"Average CLS: {self._colorize_vitals(avg_cls, 'cls', RED, YELLOW, GREEN, RESET)}")
+
+                if inp_values:
+                    avg_inp = sum(inp_values) / len(inp_values)
+                    lines.append(f"Average INP: {self._colorize_vitals(avg_inp, 'inp', RED, YELLOW, GREEN, RESET)}")
+
+                lines.append(f"\nPages measured: {len(successful_vitals)}")
+
+                # Show individual measurements
+                lines.append(f"\n{BOLD}Individual Measurements:{RESET}")
+
+                for v in successful_vitals[:10]:  # Show first 10
+                    lines.append(f"\n{v.url}")
+                    if v.lcp is not None:
+                        lines.append(f"  LCP: {self._colorize_vitals(v.lcp, 'lcp', RED, YELLOW, GREEN, RESET)}")
+                    if v.cls is not None:
+                        lines.append(f"  CLS: {self._colorize_vitals(v.cls, 'cls', RED, YELLOW, GREEN, RESET)}")
+                    if v.inp is not None:
+                        lines.append(f"  INP: {self._colorize_vitals(v.inp, 'inp', RED, YELLOW, GREEN, RESET)}")
+
+                if len(successful_vitals) > 10:
+                    lines.append(f"\n... and {len(successful_vitals) - 10} more pages")
+
+            if failed_vitals:
+                lines.append(f"\n{RED}Failed measurements: {len(failed_vitals)}{RESET}")
+                for v in failed_vitals[:5]:
+                    lines.append(f"  {v.url}: {v.error_message}")
+
         return "\n".join(lines)
+
+    def _colorize_vitals(self, value: float, metric: str, RED: str, YELLOW: str, GREEN: str, RESET: str) -> str:
+        """
+        Colorize vitals value based on Google thresholds.
+
+        Args:
+            value: Metric value
+            metric: 'lcp', 'cls', or 'inp'
+            RED, YELLOW, GREEN, RESET: ANSI color codes
+
+        Returns:
+            Colorized string with value and rating
+        """
+        # Determine rating and color
+        if metric == 'lcp':
+            # LCP in seconds
+            if value <= 2.5:
+                color = GREEN
+                rating = "GOOD"
+            elif value <= 4.0:
+                color = YELLOW
+                rating = "NEEDS IMPROVEMENT"
+            else:
+                color = RED
+                rating = "POOR"
+            formatted_value = f"{value:.2f}s"
+
+        elif metric == 'cls':
+            # CLS is unitless score
+            if value <= 0.1:
+                color = GREEN
+                rating = "GOOD"
+            elif value <= 0.25:
+                color = YELLOW
+                rating = "NEEDS IMPROVEMENT"
+            else:
+                color = RED
+                rating = "POOR"
+            formatted_value = f"{value:.3f}"
+
+        elif metric == 'inp':
+            # INP in milliseconds
+            if value <= 200:
+                color = GREEN
+                rating = "GOOD"
+            elif value <= 500:
+                color = YELLOW
+                rating = "NEEDS IMPROVEMENT"
+            else:
+                color = RED
+                rating = "POOR"
+            formatted_value = f"{value:.0f}ms"
+
+        else:
+            return f"{value}"
+
+        return f"{color}{formatted_value} ({rating}){RESET}"
 
     async def _generate_json(self) -> str:
         """Generate JSON output."""
@@ -118,6 +225,7 @@ class ReportGenerator:
             return json.dumps({"error": "Crawl not found"})
 
         results = await self.db.get_link_results(self.crawl_id)
+        vitals = await self.db.get_page_vitals(self.crawl_id)
 
         data = {
             "crawl_id": self.crawl_id,
@@ -143,7 +251,22 @@ class ReportGenerator:
                     "error_message": r.error_message,
                 }
                 for r in results
-            ]
+            ],
+            "vitals": [
+                {
+                    "url": v.url,
+                    "lcp": v.lcp,
+                    "cls": v.cls,
+                    "inp": v.inp,
+                    "lcp_rating": v.get_lcp_rating(),
+                    "cls_rating": v.get_cls_rating(),
+                    "inp_rating": v.get_inp_rating(),
+                    "measured_at": v.measured_at.isoformat(),
+                    "status": v.status,
+                    "error_message": v.error_message,
+                }
+                for v in vitals
+            ] if vitals else []
         }
 
         return json.dumps(data, indent=2)
@@ -157,6 +280,7 @@ class ReportGenerator:
             return "Crawl not found"
 
         results = await self.db.get_link_results(self.crawl_id)
+        vitals = await self.db.get_page_vitals(self.crawl_id)
 
         # Setup Jinja2
         env = Environment(
@@ -165,10 +289,19 @@ class ReportGenerator:
         )
         template = env.get_template('report.html')
 
+        # Prepare results by severity for template
+        errors = [r for r in results if r.severity == 'error']
+        warnings = [r for r in results if r.severity == 'warning']
+        successes = [r for r in results if r.severity == 'success']
+
         # Render template
         html = template.render(
             summary=summary,
-            results=results
+            results=results,
+            vitals=vitals,
+            errors=errors,
+            warnings=warnings,
+            successes=successes
         )
 
         # Save to reports directory

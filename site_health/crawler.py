@@ -35,6 +35,7 @@ class SiteCrawler:
         self.visited: Set[str] = set()
         self.results: List[LinkResult] = []
         self.pages_crawled = 0
+        self.depth_map: Dict[str, int] = {}  # Track depth of each page
 
         # Semaphore for rate limiting
         self.semaphore = asyncio.Semaphore(max_concurrent)
@@ -186,6 +187,7 @@ class SiteCrawler:
                 if url not in self.visited:
                     current_batch.append((url, depth))
                     self.visited.add(url)
+                    self.depth_map[url] = depth
 
             # Process batch concurrently
             tasks = [
@@ -265,3 +267,31 @@ class SiteCrawler:
                 severity="error",
                 error_message=str(e)
             ))
+
+    def get_pages_for_vitals_measurement(self, sample_rate: float = 0.1) -> List[str]:
+        """
+        Get list of page URLs to measure vitals for.
+
+        Uses stratified sampling - always includes homepage and depth-1 pages,
+        then samples remainder to reach target rate.
+
+        Args:
+            sample_rate: Target percentage of pages to measure (0.0 to 1.0)
+
+        Returns:
+            List of URLs selected for vitals measurement
+        """
+        from site_health.performance import select_stratified_sample
+
+        # Filter to only 'page' type links (exclude images, css, js)
+        page_urls = [
+            url for url in self.visited
+            if self._get_link_type(url) == 'page' and self._is_same_domain(url)
+        ]
+
+        return select_stratified_sample(
+            page_urls,
+            self.start_url,
+            self.depth_map,
+            sample_rate
+        )

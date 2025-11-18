@@ -111,3 +111,33 @@ async def test_full_crawl_simple(tmp_path):
 
     assert len(results) > 0
     assert crawler.pages_crawled >= 1
+
+@pytest.mark.asyncio
+async def test_crawler_tracks_depth():
+    """Test that crawler tracks page depths correctly."""
+    crawler = SiteCrawler(
+        start_url="https://example.com",
+        max_depth=2,
+        timeout=5.0
+    )
+
+    # Mock a simple crawl
+    crawler.visited = {
+        "https://example.com",
+        "https://example.com/page1",
+        "https://example.com/page2",
+        "https://example.com/page1/deep"
+    }
+    crawler.depth_map = {
+        "https://example.com": 0,
+        "https://example.com/page1": 1,
+        "https://example.com/page2": 1,
+        "https://example.com/page1/deep": 2
+    }
+
+    pages = crawler.get_pages_for_vitals_measurement(sample_rate=0.5)
+
+    # Should include homepage and depth-1 pages at minimum
+    assert "https://example.com" in pages
+    assert "https://example.com/page1" in pages
+    assert "https://example.com/page2" in pages

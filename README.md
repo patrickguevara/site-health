@@ -6,6 +6,7 @@ A comprehensive web crawler and link checker that helps you find broken links, a
 
 - **Async Crawler**: High-performance asynchronous web crawling with configurable concurrency
 - **Broken Link Detection**: Identifies 404s, timeouts, and other HTTP errors
+- **Core Web Vitals**: Measure LCP, CLS, and INP using real browser automation (Playwright)
 - **Multiple Output Formats**: Terminal (colorized), HTML reports, and JSON exports
 - **SQLite History**: Persistent storage of all crawl results for historical analysis
 - **CLI and Web Interface**: Use from command line or through a browser-based UI
@@ -42,8 +43,11 @@ site-health --help
 # Basic crawl with terminal output
 site-health crawl https://example.com
 
-# Crawl with custom depth and generate HTML report
-site-health crawl https://example.com --depth 3 --format html
+# Crawl with Core Web Vitals measurement
+site-health crawl https://example.com --vitals
+
+# Crawl with custom depth and generate HTML report with vitals
+site-health crawl https://example.com --depth 3 --vitals --format html
 
 # Use configuration file
 site-health crawl --config config.yaml

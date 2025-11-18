@@ -1,8 +1,10 @@
 # site_health/report.py
 """Report generation for crawl results."""
 
+import json
 from pathlib import Path
 from typing import Optional
+from jinja2 import Environment, PackageLoader, select_autoescape
 from site_health.database import Database
 from site_health.models import CrawlSummary, LinkResult
 
@@ -108,3 +110,75 @@ class ReportGenerator:
                 lines.append(f"  {link_type}: {count}")
 
         return "\n".join(lines)
+
+    async def _generate_json(self) -> str:
+        """Generate JSON output."""
+        summary = await self.db.get_crawl_summary(self.crawl_id)
+        if not summary:
+            return json.dumps({"error": "Crawl not found"})
+
+        results = await self.db.get_link_results(self.crawl_id)
+
+        data = {
+            "crawl_id": self.crawl_id,
+            "summary": {
+                "start_url": summary.start_url,
+                "status": summary.status,
+                "started_at": summary.started_at.isoformat(),
+                "completed_at": summary.completed_at.isoformat() if summary.completed_at else None,
+                "max_depth": summary.max_depth,
+                "total_pages": summary.total_pages,
+                "total_links": summary.total_links,
+                "errors": summary.errors,
+                "warnings": summary.warnings,
+            },
+            "results": [
+                {
+                    "source_url": r.source_url,
+                    "target_url": r.target_url,
+                    "link_type": r.link_type,
+                    "status_code": r.status_code,
+                    "response_time": r.response_time,
+                    "severity": r.severity,
+                    "error_message": r.error_message,
+                }
+                for r in results
+            ]
+        }
+
+        return json.dumps(data, indent=2)
+
+    async def _generate_html(self) -> str:
+        """Generate HTML report and save to reports directory."""
+        from pathlib import Path
+
+        summary = await self.db.get_crawl_summary(self.crawl_id)
+        if not summary:
+            return "Crawl not found"
+
+        results = await self.db.get_link_results(self.crawl_id)
+
+        # Setup Jinja2
+        env = Environment(
+            loader=PackageLoader('site_health', 'templates'),
+            autoescape=select_autoescape(['html'])
+        )
+        template = env.get_template('report.html')
+
+        # Render template
+        html = template.render(
+            summary=summary,
+            results=results
+        )
+
+        # Save to reports directory
+        reports_dir = Path('reports')
+        reports_dir.mkdir(exist_ok=True)
+
+        timestamp = summary.started_at.strftime('%Y%m%d_%H%M%S')
+        filename = f"crawl_{self.crawl_id}_{timestamp}.html"
+        filepath = reports_dir / filename
+
+        filepath.write_text(html)
+
+        return str(filepath)

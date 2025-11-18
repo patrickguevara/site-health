@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Health Report - {{ summary.start_url }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 10px; }
+        h2 { color: #555; margin: 30px 0 15px; padding-bottom: 10px; border-bottom: 2px solid #eee; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat { background: #f8f9fa; padding: 15px; border-radius: 5px; }
+        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; }
+        .stat-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .success { color: #28a745; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
+        tr:hover { background: #f8f9fa; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .badge-error { background: #dc3545; color: white; }
+        .badge-warning { background: #ffc107; color: black; }
+        .badge-success { background: #28a745; color: white; }
+        .url { word-break: break-all; font-family: monospace; font-size: 13px; }
+        .filter { margin: 20px 0; }
+        .filter button { padding: 8px 16px; margin-right: 10px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; }
+        .filter button.active { background: #007bff; color: white; border-color: #007bff; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Site Health Report</h1>
+        <p><strong>URL:</strong> <span class="url">{{ summary.start_url }}</span></p>
+        <p><strong>Status:</strong> {{ summary.status }} | <strong>Completed:</strong> {{ summary.completed_at or 'In Progress' }}</p>
+
+        <div class="summary">
+            <div class="stat">
+                <div class="stat-label">Pages Crawled</div>
+                <div class="stat-value">{{ summary.total_pages }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Links Checked</div>
+                <div class="stat-value">{{ summary.total_links }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label error">Errors</div>
+                <div class="stat-value error">{{ summary.errors }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label warning">Warnings</div>
+                <div class="stat-value warning">{{ summary.warnings }}</div>
+            </div>
+        </div>
+
+        <h2>Results</h2>
+
+        <div class="filter">
+            <button class="active" onclick="filterResults('all')">All</button>
+            <button onclick="filterResults('error')">Errors Only</button>
+            <button onclick="filterResults('warning')">Warnings Only</button>
+            <button onclick="filterResults('success')">Success Only</button>
+        </div>
+
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Target URL</th>
+                    <th>Source URL</th>
+                    <th>Code</th>
+                    <th>Time (s)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr class="result-row" data-severity="{{ result.severity }}">
+                    <td>
+                        <span class="badge badge-{{ result.severity }}">{{ result.severity }}</span>
+                    </td>
+                    <td>{{ result.link_type }}</td>
+                    <td class="url">{{ result.target_url }}</td>
+                    <td class="url">{{ result.source_url }}</td>
+                    <td>{{ result.status_code or 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(result.response_time) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function filterResults(severity) {
+            const rows = document.querySelectorAll('.result-row');
+            const buttons = document.querySelectorAll('.filter button');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            rows.forEach(row => {
+                if (severity === 'all' || row.dataset.severity === severity) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

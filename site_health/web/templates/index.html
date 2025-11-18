@@ -1,0 +1,176 @@
+<!-- site_health/web/templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Health</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Site Health</h1>
+            <p>Crawl websites and check for broken links</p>
+        </header>
+
+        <section class="crawl-form">
+            <h2>Start New Crawl</h2>
+            <form id="crawlForm">
+                <div class="form-group">
+                    <label for="url">URL to Crawl</label>
+                    <input type="url" id="url" name="url" required
+                           placeholder="https://example.com">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="depth">Max Depth</label>
+                        <select id="depth" name="depth">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maxConcurrent">Max Concurrent</label>
+                        <input type="number" id="maxConcurrent" name="maxConcurrent"
+                               value="10" min="1" max="50">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="timeout">Timeout (s)</label>
+                        <input type="number" id="timeout" name="timeout"
+                               value="10" min="5" max="60" step="0.5">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">Start Crawl</button>
+            </form>
+
+            <div id="message" class="message hidden"></div>
+        </section>
+
+        <section class="crawl-history">
+            <div class="section-header">
+                <h2>Crawl History</h2>
+                <button onclick="loadCrawls()" class="btn-secondary">Refresh</button>
+            </div>
+
+            <table id="crawlsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>URL</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Pages</th>
+                        <th>Errors</th>
+                        <th>Warnings</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="crawlsBody">
+                    <tr>
+                        <td colspan="8" class="loading">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        // Load crawls on page load
+        loadCrawls();
+
+        // Handle form submission
+        document.getElementById('crawlForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = {
+                url: formData.get('url'),
+                depth: parseInt(formData.get('depth')),
+                max_concurrent: parseInt(formData.get('maxConcurrent')),
+                timeout: parseFloat(formData.get('timeout'))
+            };
+
+            try {
+                const response = await fetch('/api/crawl', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(`Crawl started! ID: ${result.crawl_id}`, 'success');
+                    setTimeout(() => loadCrawls(), 2000);
+                } else {
+                    showMessage('Error starting crawl: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        });
+
+        async function loadCrawls() {
+            try {
+                const response = await fetch('/api/crawls');
+                const crawls = await response.json();
+
+                const tbody = document.getElementById('crawlsBody');
+
+                if (crawls.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8">No crawls yet</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = crawls.map(crawl => `
+                    <tr>
+                        <td>${crawl.id}</td>
+                        <td class="url">${truncateUrl(crawl.start_url, 50)}</td>
+                        <td>${formatDate(crawl.started_at)}</td>
+                        <td><span class="status status-${crawl.status}">${crawl.status}</span></td>
+                        <td>${crawl.total_pages}</td>
+                        <td class="error">${crawl.errors}</td>
+                        <td class="warning">${crawl.warnings}</td>
+                        <td>
+                            <button onclick="viewReport(${crawl.id})" class="btn-small">View</button>
+                            <a href="/api/crawls/${crawl.id}/report?format=json"
+                               download="crawl-${crawl.id}.json" class="btn-small">JSON</a>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                document.getElementById('crawlsBody').innerHTML =
+                    `<tr><td colspan="8">Error loading crawls</td></tr>`;
+            }
+        }
+
+        function viewReport(crawlId) {
+            window.open(`/api/crawls/${crawlId}/report?format=html`, '_blank');
+        }
+
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message message-${type}`;
+            setTimeout(() => messageEl.classList.add('hidden'), 5000);
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+
+        function truncateUrl(url, maxLen) {
+            return url.length > maxLen ? url.substring(0, maxLen) + '...' : url;
+        }
+    </script>
+</body>
+</html>

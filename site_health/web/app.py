@@ -2,9 +2,10 @@
 """FastAPI web application."""
 
 import asyncio
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional, List
@@ -33,16 +34,18 @@ def create_app(db_path: str = "site_health.db") -> FastAPI:
     # Initialize database
     db = Database(db_path)
 
+    # Setup templates and static files
+    templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+    app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
     @app.on_event("startup")
     async def startup():
         await db.initialize()
 
     @app.get("/")
-    async def home():
+    async def home(request: Request):
         """Serve home page."""
-        # For now, return simple message
-        # Will add proper HTML template in next task
-        return {"message": "Site Health API", "version": "0.1.0"}
+        return templates.TemplateResponse("index.html", {"request": request})
 
     @app.post("/api/crawl", response_model=CrawlResponse)
     async def start_crawl(request: CrawlRequest, background_tasks: BackgroundTasks):

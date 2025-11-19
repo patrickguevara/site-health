@@ -1,7 +1,8 @@
 """Accessibility analyzer for web pages."""
 
+from datetime import datetime
 from bs4 import BeautifulSoup
-from site_health.models import A11yViolation
+from site_health.models import A11yViolation, A11yResult
 
 
 class A11yChecker:
@@ -315,3 +316,74 @@ class A11yChecker:
             prev_level = level
 
         return violations
+
+
+class A11yAuditor:
+    """Orchestrates accessibility checks and scoring."""
+
+    # Severity penalties
+    SEVERITY_PENALTIES = {
+        "critical": 10,
+        "serious": 5,
+        "moderate": 2,
+        "minor": 1,
+    }
+
+    def __init__(self, url: str, html: str):
+        """
+        Initialize auditor.
+
+        Args:
+            url: Page URL
+            html: HTML content
+        """
+        self.url = url
+        self.html = html
+        self.checker = A11yChecker(html)
+
+    def calculate_score(self, violations: list[A11yViolation]) -> float:
+        """
+        Calculate overall accessibility score.
+
+        Args:
+            violations: List of violations
+
+        Returns:
+            Score from 0-100
+        """
+        penalty = sum(
+            self.SEVERITY_PENALTIES.get(v.severity, 0)
+            for v in violations
+        )
+
+        return max(0.0, 100.0 - penalty)
+
+    def determine_wcag_level(
+        self,
+        violations: list[A11yViolation],
+        score: float
+    ) -> str:
+        """
+        Determine WCAG conformance level achieved.
+
+        Args:
+            violations: List of violations
+            score: Overall score
+
+        Returns:
+            "AAA", "AA", "A", or "None"
+        """
+        has_critical = any(v.severity == "critical" for v in violations)
+        has_serious = any(v.severity == "serious" for v in violations)
+
+        if has_critical:
+            return "None"
+
+        if has_serious:
+            return "A"
+
+        # No critical or serious violations
+        if score >= 95.0:
+            return "AAA"
+        else:
+            return "AA"

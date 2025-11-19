@@ -78,3 +78,28 @@ class PageVitals:
             return "needs-improvement"
         else:
             return "poor"
+
+
+@dataclass
+class SEOIssue:
+    """A single SEO issue found during analysis."""
+
+    severity: str  # "CRITICAL", "WARNING", "INFO"
+    category: str  # "technical", "content", "performance", "mobile", "structured_data"
+    check: str     # Specific check identifier (e.g., "missing_title")
+    message: str   # Human-readable description
+
+
+@dataclass
+class SEOResult:
+    """SEO analysis result for a single page."""
+
+    url: str
+    overall_score: float  # 0-100
+    technical_score: float
+    content_score: float
+    performance_score: float
+    mobile_score: float
+    structured_data_score: float
+    issues: list[SEOIssue]
+    timestamp: datetime

@@ -387,3 +387,80 @@ class A11yAuditor:
             return "AAA"
         else:
             return "AA"
+
+    def analyze(self) -> A11yResult:
+        """
+        Run complete accessibility analysis.
+
+        Returns:
+            A11yResult with scores and violations
+        """
+        # Collect all violations
+        all_violations = []
+
+        # Images & Media checks
+        all_violations.extend(self.checker.check_images_alt_text())
+        all_violations.extend(self.checker.check_suspicious_alt_text())
+
+        # Forms & Inputs checks
+        all_violations.extend(self.checker.check_form_labels())
+        all_violations.extend(self.checker.check_empty_buttons())
+
+        # Navigation & Links checks
+        all_violations.extend(self.checker.check_empty_links())
+        all_violations.extend(self.checker.check_generic_link_text())
+
+        # Structure & Semantics checks
+        all_violations.extend(self.checker.check_page_structure())
+        all_violations.extend(self.checker.check_heading_structure())
+
+        # Calculate scores by category
+        category_scores = self._calculate_category_scores(all_violations)
+
+        # Calculate overall score
+        overall_score = self.calculate_score(all_violations)
+
+        # Determine WCAG level
+        wcag_level = self.determine_wcag_level(all_violations, overall_score)
+
+        return A11yResult(
+            url=self.url,
+            overall_score=overall_score,
+            wcag_level_achieved=wcag_level,
+            images_media_score=category_scores["images_media"],
+            forms_inputs_score=category_scores["forms_inputs"],
+            navigation_links_score=category_scores["navigation_links"],
+            structure_semantics_score=category_scores["structure_semantics"],
+            color_contrast_score=100.0,  # No browser checks yet
+            aria_dynamic_score=100.0,  # No browser checks yet
+            violations=sorted(
+                all_violations,
+                key=lambda x: {"critical": 0, "serious": 1, "moderate": 2, "minor": 3}[x.severity]
+            ),
+            timestamp=datetime.now()
+        )
+
+    def _calculate_category_scores(
+        self,
+        violations: list[A11yViolation]
+    ) -> dict[str, float]:
+        """Calculate scores for each category."""
+        categories = [
+            "images_media",
+            "forms_inputs",
+            "navigation_links",
+            "structure_semantics",
+            "color_contrast",
+            "aria_dynamic"
+        ]
+
+        scores = {}
+        for category in categories:
+            category_violations = [v for v in violations if v.category == category]
+            penalty = sum(
+                self.SEVERITY_PENALTIES.get(v.severity, 0)
+                for v in category_violations
+            )
+            scores[category] = max(0.0, 100.0 - penalty)
+
+        return scores

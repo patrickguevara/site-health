@@ -75,3 +75,32 @@ def test_wcag_level_determination():
     ]
     assert auditor.determine_wcag_level(violations_moderate, 96.0) == "AAA"
     assert auditor.determine_wcag_level(violations_moderate, 94.0) == "AA"
+
+
+def test_full_analysis():
+    """Test complete a11y analysis."""
+    html = """
+    <html>
+        <head><title>Test Page</title></head>
+        <body>
+            <h1>Main Title</h1>
+            <img src="logo.png">
+            <form>
+                <input type="text" name="username">
+            </form>
+            <a href="/page1"></a>
+        </body>
+    </html>
+    """
+
+    auditor = A11yAuditor("https://example.com", html)
+    result = auditor.analyze()
+
+    assert result.url == "https://example.com"
+    assert result.overall_score < 100  # Has violations
+    assert len(result.violations) > 0
+    assert result.wcag_level_achieved in ["None", "A", "AA", "AAA"]
+
+    # Should have critical violations (missing alt, no label, empty link)
+    critical_violations = [v for v in result.violations if v.severity == "critical"]
+    assert len(critical_violations) >= 3

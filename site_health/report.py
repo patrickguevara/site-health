@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 from jinja2 import Environment, PackageLoader, select_autoescape
 from site_health.database import Database
-from site_health.models import CrawlSummary, LinkResult
+from site_health.models import CrawlSummary, LinkResult, SEOResult, SEOIssue
 
 
 class ReportGenerator:
@@ -158,6 +158,52 @@ class ReportGenerator:
                 lines.append(f"\n{RED}Failed measurements: {len(failed_vitals)}{RESET}")
                 for v in failed_vitals[:5]:
                     lines.append(f"  {v.url}: {v.error_message}")
+
+        # SEO Analysis section
+        seo_results = await self.db.get_seo_results(self.crawl_id)
+
+        if seo_results:
+            lines.append("")
+            lines.append(f"{BOLD}=== SEO Analysis ==={RESET}")
+
+            # Calculate aggregate scores
+            avg_overall = sum(r.overall_score for r in seo_results) / len(seo_results)
+            avg_technical = sum(r.technical_score for r in seo_results) / len(seo_results)
+            avg_content = sum(r.content_score for r in seo_results) / len(seo_results)
+            avg_performance = sum(r.performance_score for r in seo_results) / len(seo_results)
+            avg_mobile = sum(r.mobile_score for r in seo_results) / len(seo_results)
+            avg_structured_data = sum(r.structured_data_score for r in seo_results) / len(seo_results)
+
+            lines.append(f"\nOverall SEO Score: {avg_overall:.1f}/100")
+            lines.append("\nCategory Scores:")
+            lines.append(f"  Technical:       {avg_technical:.1f}/100")
+            lines.append(f"  Content:         {avg_content:.1f}/100")
+            lines.append(f"  Performance:     {avg_performance:.1f}/100")
+            lines.append(f"  Mobile:          {avg_mobile:.1f}/100")
+            lines.append(f"  Structured Data: {avg_structured_data:.1f}/100")
+
+            # Collect all issues
+            all_issues = []
+            for result in seo_results:
+                all_issues.extend(result.issues)
+
+            critical = [i for i in all_issues if i.severity == "CRITICAL"]
+            warnings = [i for i in all_issues if i.severity == "WARNING"]
+            info = [i for i in all_issues if i.severity == "INFO"]
+
+            lines.append(f"\nIssues Found: {len(critical)} critical, {len(warnings)} warnings, {len(info)} info")
+
+            # Show top critical issues
+            if critical:
+                lines.append(f"\n{RED}Critical Issues:{RESET}")
+                for issue in critical[:5]:
+                    lines.append(f"  {RED}\u2022{RESET} {issue.message}")
+
+            # Show top warnings
+            if warnings:
+                lines.append(f"\n{YELLOW}Warnings:{RESET}")
+                for issue in warnings[:5]:
+                    lines.append(f"  {YELLOW}\u2022{RESET} {issue.message}")
 
         return "\n".join(lines)
 

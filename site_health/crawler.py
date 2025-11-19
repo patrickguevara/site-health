@@ -295,3 +295,18 @@ class SiteCrawler:
             self.depth_map,
             sample_rate
         )
+
+    def get_pages_for_seo_analysis(self) -> list[str]:
+        """
+        Get list of page URLs to analyze for SEO.
+
+        Returns all crawled same-domain pages that returned 200 OK.
+
+        Returns:
+            List of URLs to analyze
+        """
+        # Return all visited same-domain pages
+        return [
+            url for url in self.visited
+            if self._get_link_type(url) == 'page' and self._is_same_domain(url)
+        ]

@@ -24,6 +24,7 @@ def crawl(
     timeout: Optional[float] = typer.Option(None, "--timeout", help="Request timeout in seconds"),
     no_robots: bool = typer.Option(False, "--no-robots", help="Ignore robots.txt"),
     vitals: bool = typer.Option(False, "--vitals", help="Measure Core Web Vitals (10% sample)"),
+    seo: bool = typer.Option(False, "--seo", help="Run SEO audit on crawled pages"),
     db_path: str = typer.Option("site_health.db", "--db", help="Database path"),
 ):
     """Crawl a website and check for broken links."""
@@ -37,6 +38,7 @@ def crawl(
         timeout=timeout,
         no_robots=no_robots,
         vitals=vitals,
+        seo=seo,
         db_path=db_path,
     ))
 
@@ -51,6 +53,7 @@ async def _crawl_async(
     timeout: Optional[float],
     no_robots: bool,
     vitals: bool,
+    seo: bool,
     db_path: str,
 ):
     """Async implementation of crawl command."""
@@ -131,6 +134,43 @@ async def _crawl_async(
             successful = sum(1 for v in vitals_results if v.status == "success")
             failed = len(vitals_results) - successful
             typer.echo(f"✓ Measured {successful} pages successfully ({failed} failed)")
+
+        # Run SEO analysis if requested
+        if seo:
+            typer.echo("\nRunning SEO analysis...")
+            from site_health.seo_analyzer import SEOAnalyzer
+            import httpx
+
+            # Get pages to analyze
+            pages_to_analyze = crawler.get_pages_for_seo_analysis()
+            typer.echo(f"Analyzing {len(pages_to_analyze)} pages...")
+
+            # Get vitals data if available
+            vitals_by_url = {}
+            if vitals:
+                vitals_results = await db.get_page_vitals(crawl_id)
+                vitals_by_url = {v.url: v for v in vitals_results}
+
+            # Analyze each page
+            seo_count = 0
+            async with httpx.AsyncClient(timeout=crawler.timeout) as client:
+                for url in pages_to_analyze:
+                    try:
+                        response = await client.get(url)
+                        if response.status_code == 200 and 'text/html' in response.headers.get('content-type', ''):
+                            analyzer = SEOAnalyzer(
+                                url=url,
+                                html=response.text,
+                                status_code=response.status_code,
+                                vitals=vitals_by_url.get(url)
+                            )
+                            seo_result = analyzer.analyze()
+                            await db.save_seo_result(crawl_id, seo_result)
+                            seo_count += 1
+                    except Exception as e:
+                        typer.echo(f"Warning: Failed to analyze {url}: {e}", err=True)
+
+            typer.echo(f"✓ Completed SEO analysis of {seo_count} pages")
 
         # Mark crawl as complete
         await db.complete_crawl(

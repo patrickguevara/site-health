@@ -1,7 +1,6 @@
 # tests/test_database.py
 import pytest
 import aiosqlite
-from pathlib import Path
 from site_health.database import Database
 from site_health.models import LinkResult
 

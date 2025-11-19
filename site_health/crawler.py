@@ -5,7 +5,7 @@ import asyncio
 import httpx
 from urllib.parse import urljoin, urlparse, urlunparse
 from bs4 import BeautifulSoup
-from typing import Set, List, Dict, Optional
+from typing import Set, List, Dict
 from site_health.models import LinkResult
 
 

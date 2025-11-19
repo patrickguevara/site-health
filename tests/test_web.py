@@ -1,6 +1,5 @@
 # tests/test_web.py
 import pytest
-from httpx import AsyncClient
 from site_health.web.app import create_app
 from site_health.database import Database
 

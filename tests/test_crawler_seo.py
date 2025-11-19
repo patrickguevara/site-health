@@ -1,5 +1,4 @@
 # tests/test_crawler_seo.py
-import pytest
 from site_health.crawler import SiteCrawler
 
 

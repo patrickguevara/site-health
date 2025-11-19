@@ -3,10 +3,8 @@
 
 import json
 from pathlib import Path
-from typing import Optional
 from jinja2 import Environment, PackageLoader, select_autoescape
 from site_health.database import Database
-from site_health.models import CrawlSummary, LinkResult, SEOResult, SEOIssue
 
 
 class ReportGenerator:
@@ -342,7 +340,6 @@ class ReportGenerator:
 
     async def _generate_html(self) -> str:
         """Generate HTML report and save to reports directory."""
-        from pathlib import Path
 
         summary = await self.db.get_crawl_summary(self.crawl_id)
         if not summary:

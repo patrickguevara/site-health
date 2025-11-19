@@ -3,7 +3,6 @@
 
 import aiosqlite
 from datetime import datetime
-from pathlib import Path
 from typing import List, Optional
 from site_health.models import LinkResult, CrawlSummary, PageVitals, SEOResult, SEOIssue
 

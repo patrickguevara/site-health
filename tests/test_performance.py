@@ -1,5 +1,4 @@
 # tests/test_performance.py
-import pytest
 from site_health.performance import select_stratified_sample
 
 def test_stratified_sample_includes_homepage():

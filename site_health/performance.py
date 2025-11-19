@@ -1,10 +1,9 @@
 # site_health/performance.py
 """Performance measurement using Playwright and Core Web Vitals."""
 
-import asyncio
 from datetime import datetime
 from typing import List, Set
-from playwright.async_api import async_playwright, Page, Browser
+from playwright.async_api import async_playwright, Browser
 from site_health.models import PageVitals
 
 

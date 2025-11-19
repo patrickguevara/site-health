@@ -1,6 +1,4 @@
 # tests/test_config.py
-import pytest
-from pathlib import Path
 from site_health.config import Config
 
 def test_load_config_from_yaml(tmp_path):
@@ -20,7 +18,7 @@ output_format: json
     assert config.depth == 3
     assert config.max_concurrent == 5
     assert config.timeout == 15.0
-    assert config.respect_robots == False
+    assert not config.respect_robots
     assert config.output_format == "json"
 
 def test_merge_config_with_cli_args(tmp_path):

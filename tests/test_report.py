@@ -146,7 +146,7 @@ async def test_terminal_report_with_seo(tmp_path):
 @pytest.mark.asyncio
 async def test_json_report_with_seo(tmp_path):
     """Test JSON report includes SEO data."""
-    from site_health.models import SEOResult, SEOIssue
+    from site_health.models import SEOResult
     from datetime import datetime
 
     db_path = tmp_path / "test.db"

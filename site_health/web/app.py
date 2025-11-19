@@ -1,14 +1,12 @@
 # site_health/web/app.py
 """FastAPI web application."""
 
-import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from pathlib import Path
-from typing import Optional, List
 from site_health.database import Database
 from site_health.crawler import SiteCrawler
 from site_health.report import ReportGenerator
@@ -208,6 +206,6 @@ async def run_crawl(
             total_links=len(results),
         )
 
-    except Exception as e:
+    except Exception:
         # Mark as failed
         await db.complete_crawl(crawl_id, total_pages=0, total_links=0, status="failed")

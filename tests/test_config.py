@@ -37,3 +37,34 @@ output_format: html
     assert merged.url == "https://example.com"  # From config
     assert merged.depth == 5  # Overridden by CLI
     assert merged.output_format == "json"  # Overridden by CLI
+
+
+def test_config_with_a11y_options():
+    """Test configuration with a11y audit options."""
+    config = Config(
+        url="https://example.com",
+        run_a11y_audit=True,
+        a11y_level="AA",
+        a11y_use_browser=False
+    )
+
+    assert config.run_a11y_audit is True
+    assert config.a11y_level == "AA"
+    assert config.a11y_use_browser is False
+
+
+def test_a11y_config_from_yaml(tmp_path):
+    """Test loading a11y config from YAML."""
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("""
+url: https://example.com
+run_a11y_audit: true
+a11y_level: "AAA"
+a11y_use_browser: true
+""")
+
+    config = Config.from_yaml(str(config_file))
+
+    assert config.run_a11y_audit is True
+    assert config.a11y_level == "AAA"
+    assert config.a11y_use_browser is True

@@ -18,6 +18,9 @@ class Config:
     respect_robots: bool = True
     output_format: str = "terminal"
     output_path: Optional[str] = None
+    run_a11y_audit: bool = False
+    a11y_level: str = "AA"  # "A", "AA", or "AAA"
+    a11y_use_browser: bool = False
 
     @classmethod
     def from_yaml(cls, filepath: str) -> 'Config':
@@ -45,6 +48,9 @@ class Config:
             'respect_robots': self.respect_robots,
             'output_format': self.output_format,
             'output_path': self.output_path,
+            'run_a11y_audit': self.run_a11y_audit,
+            'a11y_level': self.a11y_level,
+            'a11y_use_browser': self.a11y_use_browser,
         }
 
         # Override with any non-None kwargs

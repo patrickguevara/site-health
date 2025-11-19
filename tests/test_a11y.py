@@ -92,3 +92,48 @@ def test_empty_buttons_detection():
     assert len(violations) == 2
     assert violations[0].severity == "serious"
     assert violations[0].check == "empty_button"
+
+
+def test_empty_links_detection():
+    """Test detection of links without text or labels."""
+    html = """
+    <html>
+        <body>
+            <a href="/page1"></a>
+            <a href="/page2">Valid link</a>
+            <a href="/page3" aria-label="Home"></a>
+            <a href="/page4"><img src="icon.png" alt=""></a>
+        </body>
+    </html>
+    """
+
+    checker = A11yChecker(html)
+    violations = checker.check_empty_links()
+
+    # Should detect first and last link
+    assert len(violations) == 2
+    assert violations[0].severity == "critical"
+    assert violations[0].check == "empty_link"
+    assert violations[0].wcag_criterion == "2.4.4"
+
+
+def test_generic_link_text_detection():
+    """Test detection of links with generic text."""
+    html = """
+    <html>
+        <body>
+            <a href="/page1">click here</a>
+            <a href="/page2">Read more about accessibility</a>
+            <a href="/page3">More</a>
+            <a href="/page4">Learn about Python</a>
+        </body>
+    </html>
+    """
+
+    checker = A11yChecker(html)
+    violations = checker.check_generic_link_text()
+
+    # Should detect "click here" and "More"
+    assert len(violations) == 2
+    assert violations[0].severity == "moderate"
+    assert violations[0].check == "generic_link_text"

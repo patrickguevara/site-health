@@ -40,6 +40,35 @@ class A11yChecker:
 
         return violations
 
+    def check_generic_link_text(self) -> list[A11yViolation]:
+        """
+        Check for links with generic or unhelpful text.
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+        generic_patterns = [
+            'click here', 'click', 'here', 'more', 'read more',
+            'link', 'this', 'continue', 'go'
+        ]
+
+        for link in self.soup.find_all('a'):
+            text = link.get_text(strip=True).lower()
+
+            if text in generic_patterns:
+                violations.append(A11yViolation(
+                    severity="moderate",
+                    category="navigation_links",
+                    wcag_criterion="2.4.4",
+                    check="generic_link_text",
+                    message=f"Link has generic text: '{text}'",
+                    element=str(link)[:100],
+                    suggested_fix="Use descriptive text that makes sense out of context"
+                ))
+
+        return violations
+
     def check_suspicious_alt_text(self) -> list[A11yViolation]:
         """
         Check for images with suspicious or empty alt text.
@@ -74,6 +103,35 @@ class A11yChecker:
                     message=f"Image has generic alt text: '{alt}'",
                     element=str(img),
                     suggested_fix="Use more descriptive alt text"
+                ))
+
+        return violations
+
+    def check_generic_link_text(self) -> list[A11yViolation]:
+        """
+        Check for links with generic or unhelpful text.
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+        generic_patterns = [
+            'click here', 'click', 'here', 'more', 'read more',
+            'link', 'this', 'continue', 'go'
+        ]
+
+        for link in self.soup.find_all('a'):
+            text = link.get_text(strip=True).lower()
+
+            if text in generic_patterns:
+                violations.append(A11yViolation(
+                    severity="moderate",
+                    category="navigation_links",
+                    wcag_criterion="2.4.4",
+                    check="generic_link_text",
+                    message=f"Link has generic text: '{text}'",
+                    element=str(link)[:100],
+                    suggested_fix="Use descriptive text that makes sense out of context"
                 ))
 
         return violations
@@ -122,6 +180,35 @@ class A11yChecker:
 
         return violations
 
+    def check_generic_link_text(self) -> list[A11yViolation]:
+        """
+        Check for links with generic or unhelpful text.
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+        generic_patterns = [
+            'click here', 'click', 'here', 'more', 'read more',
+            'link', 'this', 'continue', 'go'
+        ]
+
+        for link in self.soup.find_all('a'):
+            text = link.get_text(strip=True).lower()
+
+            if text in generic_patterns:
+                violations.append(A11yViolation(
+                    severity="moderate",
+                    category="navigation_links",
+                    wcag_criterion="2.4.4",
+                    check="generic_link_text",
+                    message=f"Link has generic text: '{text}'",
+                    element=str(link)[:100],
+                    suggested_fix="Use descriptive text that makes sense out of context"
+                ))
+
+        return violations
+
     def check_empty_buttons(self) -> list[A11yViolation]:
         """
         Check for buttons without text content or labels (WCAG 4.1.2 Level A).
@@ -157,6 +244,103 @@ class A11yChecker:
                     message="Button has no accessible text or label",
                     element=str(button),
                     suggested_fix="Add text content or aria-label attribute"
+                ))
+
+        return violations
+
+    def check_generic_link_text(self) -> list[A11yViolation]:
+        """
+        Check for links with generic or unhelpful text.
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+        generic_patterns = [
+            'click here', 'click', 'here', 'more', 'read more',
+            'link', 'this', 'continue', 'go'
+        ]
+
+        for link in self.soup.find_all('a'):
+            text = link.get_text(strip=True).lower()
+
+            if text in generic_patterns:
+                violations.append(A11yViolation(
+                    severity="moderate",
+                    category="navigation_links",
+                    wcag_criterion="2.4.4",
+                    check="generic_link_text",
+                    message=f"Link has generic text: '{text}'",
+                    element=str(link)[:100],
+                    suggested_fix="Use descriptive text that makes sense out of context"
+                ))
+
+        return violations
+
+    def check_empty_links(self) -> list[A11yViolation]:
+        """
+        Check for links without text content or labels (WCAG 2.4.4 Level A).
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+
+        for link in self.soup.find_all('a'):
+            # Skip if has aria-label or aria-labelledby
+            if link.has_attr('aria-label') or link.has_attr('aria-labelledby'):
+                continue
+
+            # Check for text content
+            text_content = link.get_text(strip=True)
+            if text_content:
+                continue
+
+            # Check for meaningful alt text in child images
+            has_meaningful_content = False
+            for img in link.find_all('img'):
+                if img.has_attr('alt') and img['alt'].strip():
+                    has_meaningful_content = True
+                    break
+
+            if not has_meaningful_content:
+                violations.append(A11yViolation(
+                    severity="critical",
+                    category="navigation_links",
+                    wcag_criterion="2.4.4",
+                    check="empty_link",
+                    message="Link has no accessible text or label",
+                    element=str(link)[:100],
+                    suggested_fix="Add descriptive link text or aria-label"
+                ))
+
+        return violations
+
+    def check_generic_link_text(self) -> list[A11yViolation]:
+        """
+        Check for links with generic or unhelpful text.
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+        generic_patterns = [
+            'click here', 'click', 'here', 'more', 'read more',
+            'link', 'this', 'continue', 'go'
+        ]
+
+        for link in self.soup.find_all('a'):
+            text = link.get_text(strip=True).lower()
+
+            if text in generic_patterns:
+                violations.append(A11yViolation(
+                    severity="moderate",
+                    category="navigation_links",
+                    wcag_criterion="2.4.4",
+                    check="generic_link_text",
+                    message=f"Link has generic text: '{text}'",
+                    element=str(link)[:100],
+                    suggested_fix="Use descriptive text that makes sense out of context"
                 ))
 
         return violations

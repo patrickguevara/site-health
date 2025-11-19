@@ -203,6 +203,68 @@ class ReportGenerator:
                 for issue in warnings[:5]:
                     lines.append(f"  {YELLOW}\u2022{RESET} {issue.message}")
 
+        # A11y Audit section
+        a11y_results = await self.db.get_a11y_results(self.crawl_id)
+        if a11y_results:
+            lines.append("")
+            lines.append(f"{BOLD}=== Accessibility Audit ==={RESET}")
+
+            # Calculate aggregate stats
+            total_score = sum(r.overall_score for r in a11y_results) / len(a11y_results)
+            all_violations = [v for r in a11y_results for v in r.violations]
+
+            violations_by_severity = {
+                "critical": sum(1 for v in all_violations if v.severity == "critical"),
+                "serious": sum(1 for v in all_violations if v.severity == "serious"),
+                "moderate": sum(1 for v in all_violations if v.severity == "moderate"),
+                "minor": sum(1 for v in all_violations if v.severity == "minor"),
+            }
+
+            # Determine overall WCAG level
+            has_critical = violations_by_severity["critical"] > 0
+            has_serious = violations_by_severity["serious"] > 0
+
+            if has_critical:
+                wcag_level = "None"
+                wcag_status = "(Level A not achieved)"
+            elif has_serious:
+                wcag_level = "A"
+                wcag_status = "(Level AA not achieved)"
+            elif total_score >= 95:
+                wcag_level = "AAA"
+                wcag_status = ""
+            else:
+                wcag_level = "AA"
+                wcag_status = ""
+
+            lines.append(f"\nOverall Score: {total_score:.0f}/100")
+            lines.append(f"WCAG Level: {wcag_level} {wcag_status}")
+
+            lines.append("\nViolations by Severity:")
+            lines.append(f"  Critical: {violations_by_severity['critical']}")
+            lines.append(f"  Serious: {violations_by_severity['serious']}")
+            lines.append(f"  Moderate: {violations_by_severity['moderate']}")
+            lines.append(f"  Minor: {violations_by_severity['minor']}")
+
+            # Top issues
+            if all_violations:
+                lines.append("\nTop Issues:")
+                # Group by check type
+                issue_counts = {}
+                for v in all_violations:
+                    key = (v.severity, v.message.split(':')[0] if ':' in v.message else v.message)
+                    issue_counts[key] = issue_counts.get(key, 0) + 1
+
+                # Sort by severity then count
+                severity_order = {"critical": 0, "serious": 1, "moderate": 2, "minor": 3}
+                sorted_issues = sorted(
+                    issue_counts.items(),
+                    key=lambda x: (severity_order[x[0][0]], -x[1])
+                )
+
+                for (severity, msg), count in sorted_issues[:5]:
+                    lines.append(f"  \u2022 {count} {msg} ({severity})")
+
         return "\n".join(lines)
 
     def _colorize_vitals(self, value: float, metric: str, RED: str, YELLOW: str, GREEN: str, RESET: str) -> str:

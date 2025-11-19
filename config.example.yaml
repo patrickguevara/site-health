@@ -7,3 +7,8 @@ max_concurrent: 10
 timeout: 10.0
 respect_robots: true
 output_format: terminal
+
+# Accessibility audit
+run_a11y_audit: false
+a11y_level: "AA"  # A, AA, or AAA
+a11y_use_browser: false  # Enable browser-based checks (requires --vitals)

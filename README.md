@@ -8,6 +8,7 @@ A comprehensive web crawler and link checker that helps you find broken links, a
 - **Broken Link Detection**: Identifies 404s, timeouts, and other HTTP errors
 - **Core Web Vitals**: Measure LCP, CLS, and INP using real browser automation (Playwright)
 - **SEO Audit**: Comprehensive SEO analysis with severity-based scoring across 5 categories (technical, content, performance, mobile, structured data)
+- **Accessibility Audit**: WCAG compliance checking with configurable levels (A, AA, AAA) and severity-based scoring
 - **Multiple Output Formats**: Terminal (colorized), HTML reports, and JSON exports
 - **SQLite History**: Persistent storage of all crawl results for historical analysis
 - **CLI and Web Interface**: Use from command line or through a browser-based UI
@@ -49,6 +50,15 @@ site-health crawl https://example.com --vitals
 
 # Crawl with SEO audit
 site-health crawl https://example.com --seo
+
+# Crawl with accessibility audit
+site-health crawl https://example.com --a11y
+
+# Crawl with specific WCAG level
+site-health crawl https://example.com --a11y --a11y-level AAA
+
+# Comprehensive audit (SEO + A11y + Vitals)
+site-health crawl https://example.com --seo --a11y --vitals
 
 # Crawl with both SEO and Core Web Vitals
 site-health crawl https://example.com --seo --vitals

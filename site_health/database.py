@@ -4,7 +4,7 @@
 import aiosqlite
 from datetime import datetime
 from typing import List, Optional
-from site_health.models import LinkResult, CrawlSummary, PageVitals, SEOResult, SEOIssue
+from site_health.models import LinkResult, CrawlSummary, PageVitals, SEOResult, SEOIssue, A11yResult, A11yViolation
 
 
 class Database:
@@ -95,6 +95,30 @@ class Database:
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_seo_crawl_id
                 ON seo_results(crawl_id)
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS a11y_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    crawl_id INTEGER NOT NULL,
+                    url TEXT NOT NULL,
+                    overall_score REAL,
+                    wcag_level_achieved TEXT,
+                    images_media_score REAL,
+                    forms_inputs_score REAL,
+                    navigation_links_score REAL,
+                    structure_semantics_score REAL,
+                    color_contrast_score REAL,
+                    aria_dynamic_score REAL,
+                    violations TEXT,
+                    timestamp TIMESTAMP NOT NULL,
+                    FOREIGN KEY (crawl_id) REFERENCES crawls(id)
+                )
+            """)
+
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_a11y_crawl_id
+                ON a11y_results(crawl_id)
             """)
 
             await conn.commit()
@@ -398,6 +422,100 @@ class Database:
                     mobile_score=row["mobile_score"],
                     structured_data_score=row["structured_data_score"],
                     issues=issues,
+                    timestamp=datetime.fromisoformat(row["timestamp"])
+                ))
+
+            return results
+
+    async def save_a11y_result(self, crawl_id: int, result: A11yResult):
+        """Save accessibility analysis result for a page."""
+        import json
+
+        # Serialize violations to JSON
+        violations_json = json.dumps([
+            {
+                "severity": v.severity,
+                "category": v.category,
+                "wcag_criterion": v.wcag_criterion,
+                "check": v.check,
+                "message": v.message,
+                "element": v.element,
+                "suggested_fix": v.suggested_fix
+            }
+            for v in result.violations
+        ])
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            await conn.execute(
+                """
+                INSERT INTO a11y_results
+                (crawl_id, url, overall_score, wcag_level_achieved,
+                 images_media_score, forms_inputs_score, navigation_links_score,
+                 structure_semantics_score, color_contrast_score, aria_dynamic_score,
+                 violations, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    crawl_id,
+                    result.url,
+                    result.overall_score,
+                    result.wcag_level_achieved,
+                    result.images_media_score,
+                    result.forms_inputs_score,
+                    result.navigation_links_score,
+                    result.structure_semantics_score,
+                    result.color_contrast_score,
+                    result.aria_dynamic_score,
+                    violations_json,
+                    result.timestamp
+                )
+            )
+            await conn.commit()
+
+    async def get_a11y_results(self, crawl_id: int) -> List[A11yResult]:
+        """Get all accessibility results for a crawl."""
+        import json
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            cursor = await conn.execute(
+                """
+                SELECT * FROM a11y_results
+                WHERE crawl_id = ?
+                ORDER BY timestamp
+                """,
+                (crawl_id,)
+            )
+            rows = await cursor.fetchall()
+
+            results = []
+            for row in rows:
+                # Deserialize violations from JSON
+                violations_data = json.loads(row["violations"])
+                violations = [
+                    A11yViolation(
+                        severity=v["severity"],
+                        category=v["category"],
+                        wcag_criterion=v["wcag_criterion"],
+                        check=v["check"],
+                        message=v["message"],
+                        element=v.get("element"),
+                        suggested_fix=v.get("suggested_fix")
+                    )
+                    for v in violations_data
+                ]
+
+                results.append(A11yResult(
+                    url=row["url"],
+                    overall_score=row["overall_score"],
+                    wcag_level_achieved=row["wcag_level_achieved"],
+                    images_media_score=row["images_media_score"],
+                    forms_inputs_score=row["forms_inputs_score"],
+                    navigation_links_score=row["navigation_links_score"],
+                    structure_semantics_score=row["structure_semantics_score"],
+                    color_contrast_score=row["color_contrast_score"],
+                    aria_dynamic_score=row["aria_dynamic_score"],
+                    violations=violations,
                     timestamp=datetime.fromisoformat(row["timestamp"])
                 ))
 

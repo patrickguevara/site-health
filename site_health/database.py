@@ -5,7 +5,7 @@ import aiosqlite
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from site_health.models import LinkResult, CrawlSummary, PageVitals
+from site_health.models import LinkResult, CrawlSummary, PageVitals, SEOResult, SEOIssue
 
 
 class Database:
@@ -74,6 +74,28 @@ class Database:
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vitals_crawl_id
                 ON page_vitals(crawl_id)
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS seo_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    crawl_id INTEGER NOT NULL,
+                    url TEXT NOT NULL,
+                    overall_score REAL,
+                    technical_score REAL,
+                    content_score REAL,
+                    performance_score REAL,
+                    mobile_score REAL,
+                    structured_data_score REAL,
+                    issues TEXT,
+                    timestamp TIMESTAMP NOT NULL,
+                    FOREIGN KEY (crawl_id) REFERENCES crawls(id)
+                )
+            """)
+
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_seo_crawl_id
+                ON seo_results(crawl_id)
             """)
 
             await conn.commit()
@@ -298,3 +320,86 @@ class Database:
                 )
                 for row in rows
             ]
+
+    async def save_seo_result(self, crawl_id: int, result: SEOResult):
+        """Save SEO analysis result for a page."""
+        import json
+
+        # Serialize issues to JSON
+        issues_json = json.dumps([
+            {
+                "severity": issue.severity,
+                "category": issue.category,
+                "check": issue.check,
+                "message": issue.message
+            }
+            for issue in result.issues
+        ])
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            await conn.execute(
+                """
+                INSERT INTO seo_results
+                (crawl_id, url, overall_score, technical_score, content_score,
+                 performance_score, mobile_score, structured_data_score,
+                 issues, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    crawl_id,
+                    result.url,
+                    result.overall_score,
+                    result.technical_score,
+                    result.content_score,
+                    result.performance_score,
+                    result.mobile_score,
+                    result.structured_data_score,
+                    issues_json,
+                    result.timestamp
+                )
+            )
+            await conn.commit()
+
+    async def get_seo_results(self, crawl_id: int) -> List[SEOResult]:
+        """Get all SEO results for a crawl."""
+        import json
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            cursor = await conn.execute(
+                """
+                SELECT * FROM seo_results
+                WHERE crawl_id = ?
+                ORDER BY timestamp
+                """,
+                (crawl_id,)
+            )
+            rows = await cursor.fetchall()
+
+            results = []
+            for row in rows:
+                # Deserialize issues from JSON
+                issues_data = json.loads(row["issues"])
+                issues = [
+                    SEOIssue(
+                        severity=issue["severity"],
+                        category=issue["category"],
+                        check=issue["check"],
+                        message=issue["message"]
+                    )
+                    for issue in issues_data
+                ]
+
+                results.append(SEOResult(
+                    url=row["url"],
+                    overall_score=row["overall_score"],
+                    technical_score=row["technical_score"],
+                    content_score=row["content_score"],
+                    performance_score=row["performance_score"],
+                    mobile_score=row["mobile_score"],
+                    structured_data_score=row["structured_data_score"],
+                    issues=issues,
+                    timestamp=datetime.fromisoformat(row["timestamp"])
+                ))
+
+            return results

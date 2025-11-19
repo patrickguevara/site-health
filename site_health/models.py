@@ -103,3 +103,33 @@ class SEOResult:
     structured_data_score: float
     issues: list[SEOIssue]
     timestamp: datetime
+
+
+@dataclass
+class A11yViolation:
+    """A single accessibility violation found during analysis."""
+
+    severity: str  # "critical", "serious", "moderate", "minor"
+    category: str  # "images_media", "forms_inputs", "navigation_links", "structure_semantics", "color_contrast", "aria_dynamic"
+    wcag_criterion: str  # e.g., "1.1.1", "2.4.4"
+    check: str  # Specific check identifier (e.g., "missing_alt_text")
+    message: str  # Human-readable description
+    element: str | None = None  # HTML element that triggered violation
+    suggested_fix: str | None = None  # Recommended remediation
+
+
+@dataclass
+class A11yResult:
+    """Accessibility analysis result for a single page."""
+
+    url: str
+    overall_score: float  # 0-100
+    wcag_level_achieved: str  # "A", "AA", "AAA", or "None"
+    images_media_score: float
+    forms_inputs_score: float
+    navigation_links_score: float
+    structure_semantics_score: float
+    color_contrast_score: float  # Only with browser checks
+    aria_dynamic_score: float  # Only with browser checks
+    violations: list[A11yViolation]
+    timestamp: datetime

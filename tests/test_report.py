@@ -142,3 +142,37 @@ async def test_terminal_report_with_seo(tmp_path):
     assert "85.0" in report  # Overall score
     assert "warnings" in report.lower()  # Check for warnings section
     assert "Only 200 words" in report  # Check the actual warning message is present
+
+@pytest.mark.asyncio
+async def test_json_report_with_seo(tmp_path):
+    """Test JSON report includes SEO data."""
+    from site_health.models import SEOResult, SEOIssue
+    from datetime import datetime
+
+    db_path = tmp_path / "test.db"
+    db = Database(str(db_path))
+    await db.initialize()
+
+    crawl_id = await db.create_crawl("https://example.com", max_depth=2)
+
+    seo_result = SEOResult(
+        url="https://example.com",
+        overall_score=85.0,
+        technical_score=90.0,
+        content_score=80.0,
+        performance_score=95.0,
+        mobile_score=75.0,
+        structured_data_score=70.0,
+        issues=[],
+        timestamp=datetime.now()
+    )
+    await db.save_seo_result(crawl_id, seo_result)
+    await db.complete_crawl(crawl_id, total_pages=1, total_links=5)
+
+    generator = ReportGenerator(crawl_id, db)
+    report = await generator.generate('json')
+
+    data = json.loads(report)
+    assert "seo_results" in data
+    assert len(data["seo_results"]) == 1
+    assert data["seo_results"][0]["overall_score"] == 85.0

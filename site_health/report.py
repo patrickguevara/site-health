@@ -272,6 +272,7 @@ class ReportGenerator:
 
         results = await self.db.get_link_results(self.crawl_id)
         vitals = await self.db.get_page_vitals(self.crawl_id)
+        seo_results = await self.db.get_seo_results(self.crawl_id)
 
         data = {
             "crawl_id": self.crawl_id,
@@ -312,7 +313,29 @@ class ReportGenerator:
                     "error_message": v.error_message,
                 }
                 for v in vitals
-            ] if vitals else []
+            ] if vitals else [],
+            "seo_results": [
+                {
+                    "url": s.url,
+                    "overall_score": s.overall_score,
+                    "technical_score": s.technical_score,
+                    "content_score": s.content_score,
+                    "performance_score": s.performance_score,
+                    "mobile_score": s.mobile_score,
+                    "structured_data_score": s.structured_data_score,
+                    "issues": [
+                        {
+                            "severity": i.severity,
+                            "category": i.category,
+                            "check": i.check,
+                            "message": i.message
+                        }
+                        for i in s.issues
+                    ],
+                    "timestamp": s.timestamp.isoformat()
+                }
+                for s in seo_results
+            ] if seo_results else []
         }
 
         return json.dumps(data, indent=2)
@@ -327,6 +350,7 @@ class ReportGenerator:
 
         results = await self.db.get_link_results(self.crawl_id)
         vitals = await self.db.get_page_vitals(self.crawl_id)
+        seo_results = await self.db.get_seo_results(self.crawl_id)
 
         # Setup Jinja2
         env = Environment(
@@ -345,6 +369,7 @@ class ReportGenerator:
             summary=summary,
             results=results,
             vitals=vitals,
+            seo_results=seo_results,
             errors=errors,
             warnings=warnings,
             successes=successes

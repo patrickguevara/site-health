@@ -92,6 +92,97 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if vitals %}
+        <h2>Core Web Vitals</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>LCP (s)</th>
+                    <th>CLS</th>
+                    <th>INP (ms)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vital in vitals %}
+                <tr>
+                    <td class="url">{{ vital.url }}</td>
+                    <td>{{ "%.2f"|format(vital.lcp) if vital.lcp else 'N/A' }}</td>
+                    <td>{{ "%.3f"|format(vital.cls) if vital.cls else 'N/A' }}</td>
+                    <td>{{ "%.0f"|format(vital.inp) if vital.inp else 'N/A' }}</td>
+                    <td>
+                        <span class="badge badge-{{ 'success' if vital.status == 'success' else 'error' }}">{{ vital.status }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if seo_results %}
+        <h2>SEO Analysis</h2>
+
+        {% set avg_overall = (seo_results | sum(attribute='overall_score')) / (seo_results | length) %}
+        {% set avg_technical = (seo_results | sum(attribute='technical_score')) / (seo_results | length) %}
+        {% set avg_content = (seo_results | sum(attribute='content_score')) / (seo_results | length) %}
+        {% set avg_performance = (seo_results | sum(attribute='performance_score')) / (seo_results | length) %}
+        {% set avg_mobile = (seo_results | sum(attribute='mobile_score')) / (seo_results | length) %}
+        {% set avg_structured_data = (seo_results | sum(attribute='structured_data_score')) / (seo_results | length) %}
+
+        <div class="summary">
+            <div class="stat">
+                <div class="stat-label">Overall Score</div>
+                <div class="stat-value">{{ "%.1f"|format(avg_overall) }}/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Technical</div>
+                <div class="stat-value">{{ "%.1f"|format(avg_technical) }}/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Content</div>
+                <div class="stat-value">{{ "%.1f"|format(avg_content) }}/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Performance</div>
+                <div class="stat-value">{{ "%.1f"|format(avg_performance) }}/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Mobile</div>
+                <div class="stat-value">{{ "%.1f"|format(avg_mobile) }}/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Structured Data</div>
+                <div class="stat-value">{{ "%.1f"|format(avg_structured_data) }}/100</div>
+            </div>
+        </div>
+
+        <h3>Issues by Page</h3>
+        {% for result in seo_results %}
+        <details style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            <summary style="cursor: pointer; font-weight: 600;">
+                {{ result.url }} - Score: {{ "%.1f"|format(result.overall_score) }}/100
+            </summary>
+            <div style="margin-top: 10px;">
+                {% if result.issues %}
+                <ul style="list-style: none; padding: 10px;">
+                {% for issue in result.issues %}
+                    <li style="margin: 5px 0;">
+                        <span class="badge badge-{{ 'error' if issue.severity == 'CRITICAL' else ('warning' if issue.severity == 'WARNING' else 'success') }}">
+                            {{ issue.severity }}
+                        </span>
+                        <strong>[{{ issue.category }}]</strong>: {{ issue.message }}
+                    </li>
+                {% endfor %}
+                </ul>
+                {% else %}
+                <p style="color: #28a745; padding: 10px;">No issues found - excellent!</p>
+                {% endif %}
+            </div>
+        </details>
+        {% endfor %}
+        {% endif %}
     </div>
 
     <script>

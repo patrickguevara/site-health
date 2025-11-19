@@ -45,3 +45,50 @@ def test_suspicious_alt_text_detection():
     assert len(violations) == 2
     assert violations[0].severity == "moderate"
     assert violations[0].check == "suspicious_alt_text"
+
+
+def test_form_inputs_without_labels():
+    """Test detection of form inputs without labels."""
+    html = """
+    <html>
+        <body>
+            <form>
+                <input type="text" name="username">
+                <label for="email">Email:</label>
+                <input type="text" id="email" name="email">
+                <input type="text" aria-label="Phone" name="phone">
+            </form>
+        </body>
+    </html>
+    """
+
+    checker = A11yChecker(html)
+    violations = checker.check_form_labels()
+
+    # Should detect first input (no label or aria-label)
+    assert len(violations) == 1
+    assert violations[0].severity == "critical"
+    assert violations[0].check == "input_without_label"
+    assert violations[0].wcag_criterion == "1.3.1"
+
+
+def test_empty_buttons_detection():
+    """Test detection of buttons without text or labels."""
+    html = """
+    <html>
+        <body>
+            <button></button>
+            <button>Click me</button>
+            <button aria-label="Close"></button>
+            <button><img src="icon.png" alt=""></button>
+        </body>
+    </html>
+    """
+
+    checker = A11yChecker(html)
+    violations = checker.check_empty_buttons()
+
+    # Should detect first and last button (no text or aria-label)
+    assert len(violations) == 2
+    assert violations[0].severity == "serious"
+    assert violations[0].check == "empty_button"

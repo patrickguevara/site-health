@@ -25,6 +25,9 @@ def crawl(
     no_robots: bool = typer.Option(False, "--no-robots", help="Ignore robots.txt"),
     vitals: bool = typer.Option(False, "--vitals", help="Measure Core Web Vitals (10% sample)"),
     seo: bool = typer.Option(False, "--seo", help="Run SEO audit on crawled pages"),
+    a11y: bool = typer.Option(False, "--a11y", help="Run accessibility audit on crawled pages"),
+    a11y_level: str = typer.Option("AA", "--a11y-level", help="WCAG level to target (A, AA, AAA)"),
+    a11y_use_browser: bool = typer.Option(False, "--a11y-use-browser", help="Use browser for advanced a11y checks"),
     db_path: str = typer.Option("site_health.db", "--db", help="Database path"),
 ):
     """Crawl a website and check for broken links."""
@@ -39,6 +42,9 @@ def crawl(
         no_robots=no_robots,
         vitals=vitals,
         seo=seo,
+        a11y=a11y,
+        a11y_level=a11y_level,
+        a11y_use_browser=a11y_use_browser,
         db_path=db_path,
     ))
 
@@ -54,6 +60,9 @@ async def _crawl_async(
     no_robots: bool,
     vitals: bool,
     seo: bool,
+    a11y: bool,
+    a11y_level: str,
+    a11y_use_browser: bool,
     db_path: str,
 ):
     """Async implementation of crawl command."""
@@ -171,6 +180,35 @@ async def _crawl_async(
                         typer.echo(f"Warning: Failed to analyze {url}: {e}", err=True)
 
             typer.echo(f"✓ Completed SEO analysis of {seo_count} pages")
+
+        # Run A11y analysis if requested
+        if a11y:
+            typer.echo("\nRunning accessibility analysis...")
+            from site_health.a11y import A11yAuditor
+            import httpx
+
+            # Get pages to analyze
+            pages_to_analyze = crawler.get_pages_for_seo_analysis()  # Reuse same logic
+            typer.echo(f"Analyzing {len(pages_to_analyze)} pages...")
+
+            # Analyze each page
+            a11y_count = 0
+            async with httpx.AsyncClient(timeout=crawler.timeout) as client:
+                for url in pages_to_analyze:
+                    try:
+                        response = await client.get(url)
+                        if response.status_code == 200 and 'text/html' in response.headers.get('content-type', ''):
+                            auditor = A11yAuditor(
+                                url=url,
+                                html=response.text
+                            )
+                            a11y_result = auditor.analyze()
+                            await db.save_a11y_result(crawl_id, a11y_result)
+                            a11y_count += 1
+                    except Exception as e:
+                        typer.echo(f"Warning: Failed to analyze {url}: {e}", err=True)
+
+            typer.echo(f"✓ Completed accessibility analysis of {a11y_count} pages")
 
         # Mark crawl as complete
         await db.complete_crawl(

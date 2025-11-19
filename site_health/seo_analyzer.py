@@ -82,7 +82,6 @@ class SEOAnalyzer:
 
     def _check_technical(self) -> float:
         """Check technical SEO factors. Returns score 0-100."""
-        score = 100.0
         checks_passed = 0
         total_checks = 7
 
@@ -158,9 +157,9 @@ class SEOAnalyzer:
             checks_passed += 1
 
         # Check heading hierarchy
-        headings = []
-        for i in range(1, 7):
-            headings.extend([(i, tag) for tag in self.soup.find_all(f'h{i}')])
+        # Get all heading tags in document order
+        all_headings = self.soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        headings = [(int(tag.name[1]), tag) for tag in all_headings]
 
         if headings:
             prev_level = 0
@@ -208,7 +207,6 @@ class SEOAnalyzer:
 
     def _check_content(self) -> float:
         """Check content quality factors. Returns score 0-100."""
-        score = 100.0
         checks_passed = 0
         total_checks = 3
 
@@ -267,7 +265,6 @@ class SEOAnalyzer:
         """Check performance factors. Returns score 0-100."""
         # If we have vitals data, use it
         if self.vitals and self.vitals.status == "success":
-            score = 100.0
             checks_passed = 0
             total_checks = 3
 
@@ -365,7 +362,7 @@ class SEOAnalyzer:
     def _check_mobile(self) -> float:
         """Check mobile-friendliness. Returns score 0-100."""
         checks_passed = 0
-        total_checks = 2
+        total_checks = 1
 
         # Viewport meta tag
         viewport = self.soup.find('meta', attrs={'name': 'viewport'})
@@ -378,16 +375,6 @@ class SEOAnalyzer:
                 check="missing_viewport",
                 message="Page lacks viewport meta tag for mobile"
             ))
-
-        # Check for font sizes that are too small (basic heuristic)
-        styles = self.soup.find_all('style')
-        has_small_fonts = False
-        for style in styles:
-            if style.string and 'font-size' in style.string and ('px' in style.string or 'pt' in style.string):
-                # This is a simple check; real implementation would parse CSS
-                pass
-
-        checks_passed += 1  # Assume fonts are OK unless we have evidence
 
         return (checks_passed / total_checks) * 100
 

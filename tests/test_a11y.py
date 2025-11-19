@@ -137,3 +137,54 @@ def test_generic_link_text_detection():
     assert len(violations) == 2
     assert violations[0].severity == "moderate"
     assert violations[0].check == "generic_link_text"
+
+
+def test_missing_page_title():
+    """Test detection of missing page title."""
+    html_no_title = "<html><head></head><body>Content</body></html>"
+    html_empty_title = "<html><head><title></title></head><body>Content</body></html>"
+    html_valid = "<html><head><title>My Page</title></head><body>Content</body></html>"
+
+    checker1 = A11yChecker(html_no_title)
+    violations1 = checker1.check_page_structure()
+    assert any(v.check == "missing_title" for v in violations1)
+
+    checker2 = A11yChecker(html_empty_title)
+    violations2 = checker2.check_page_structure()
+    assert any(v.check == "missing_title" for v in violations2)
+
+    checker3 = A11yChecker(html_valid)
+    violations3 = checker3.check_page_structure()
+    assert not any(v.check == "missing_title" for v in violations3)
+
+
+def test_heading_structure():
+    """Test detection of skipped heading levels."""
+    html_bad = """
+    <html>
+        <body>
+            <h1>Main Title</h1>
+            <h3>Skipped h2</h3>
+            <h2>Back to h2</h2>
+        </body>
+    </html>
+    """
+
+    html_good = """
+    <html>
+        <body>
+            <h1>Main Title</h1>
+            <h2>Subtitle</h2>
+            <h3>Section</h3>
+        </body>
+    </html>
+    """
+
+    checker_bad = A11yChecker(html_bad)
+    violations_bad = checker_bad.check_heading_structure()
+    assert len(violations_bad) == 1
+    assert violations_bad[0].check == "skipped_heading_level"
+
+    checker_good = A11yChecker(html_good)
+    violations_good = checker_good.check_heading_structure()
+    assert len(violations_good) == 0

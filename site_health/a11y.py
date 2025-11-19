@@ -40,35 +40,6 @@ class A11yChecker:
 
         return violations
 
-    def check_generic_link_text(self) -> list[A11yViolation]:
-        """
-        Check for links with generic or unhelpful text.
-
-        Returns:
-            List of violations found
-        """
-        violations = []
-        generic_patterns = [
-            'click here', 'click', 'here', 'more', 'read more',
-            'link', 'this', 'continue', 'go'
-        ]
-
-        for link in self.soup.find_all('a'):
-            text = link.get_text(strip=True).lower()
-
-            if text in generic_patterns:
-                violations.append(A11yViolation(
-                    severity="moderate",
-                    category="navigation_links",
-                    wcag_criterion="2.4.4",
-                    check="generic_link_text",
-                    message=f"Link has generic text: '{text}'",
-                    element=str(link)[:100],
-                    suggested_fix="Use descriptive text that makes sense out of context"
-                ))
-
-        return violations
-
     def check_suspicious_alt_text(self) -> list[A11yViolation]:
         """
         Check for images with suspicious or empty alt text.
@@ -103,35 +74,6 @@ class A11yChecker:
                     message=f"Image has generic alt text: '{alt}'",
                     element=str(img),
                     suggested_fix="Use more descriptive alt text"
-                ))
-
-        return violations
-
-    def check_generic_link_text(self) -> list[A11yViolation]:
-        """
-        Check for links with generic or unhelpful text.
-
-        Returns:
-            List of violations found
-        """
-        violations = []
-        generic_patterns = [
-            'click here', 'click', 'here', 'more', 'read more',
-            'link', 'this', 'continue', 'go'
-        ]
-
-        for link in self.soup.find_all('a'):
-            text = link.get_text(strip=True).lower()
-
-            if text in generic_patterns:
-                violations.append(A11yViolation(
-                    severity="moderate",
-                    category="navigation_links",
-                    wcag_criterion="2.4.4",
-                    check="generic_link_text",
-                    message=f"Link has generic text: '{text}'",
-                    element=str(link)[:100],
-                    suggested_fix="Use descriptive text that makes sense out of context"
                 ))
 
         return violations
@@ -180,35 +122,6 @@ class A11yChecker:
 
         return violations
 
-    def check_generic_link_text(self) -> list[A11yViolation]:
-        """
-        Check for links with generic or unhelpful text.
-
-        Returns:
-            List of violations found
-        """
-        violations = []
-        generic_patterns = [
-            'click here', 'click', 'here', 'more', 'read more',
-            'link', 'this', 'continue', 'go'
-        ]
-
-        for link in self.soup.find_all('a'):
-            text = link.get_text(strip=True).lower()
-
-            if text in generic_patterns:
-                violations.append(A11yViolation(
-                    severity="moderate",
-                    category="navigation_links",
-                    wcag_criterion="2.4.4",
-                    check="generic_link_text",
-                    message=f"Link has generic text: '{text}'",
-                    element=str(link)[:100],
-                    suggested_fix="Use descriptive text that makes sense out of context"
-                ))
-
-        return violations
-
     def check_empty_buttons(self) -> list[A11yViolation]:
         """
         Check for buttons without text content or labels (WCAG 4.1.2 Level A).
@@ -244,35 +157,6 @@ class A11yChecker:
                     message="Button has no accessible text or label",
                     element=str(button),
                     suggested_fix="Add text content or aria-label attribute"
-                ))
-
-        return violations
-
-    def check_generic_link_text(self) -> list[A11yViolation]:
-        """
-        Check for links with generic or unhelpful text.
-
-        Returns:
-            List of violations found
-        """
-        violations = []
-        generic_patterns = [
-            'click here', 'click', 'here', 'more', 'read more',
-            'link', 'this', 'continue', 'go'
-        ]
-
-        for link in self.soup.find_all('a'):
-            text = link.get_text(strip=True).lower()
-
-            if text in generic_patterns:
-                violations.append(A11yViolation(
-                    severity="moderate",
-                    category="navigation_links",
-                    wcag_criterion="2.4.4",
-                    check="generic_link_text",
-                    message=f"Link has generic text: '{text}'",
-                    element=str(link)[:100],
-                    suggested_fix="Use descriptive text that makes sense out of context"
                 ))
 
         return violations
@@ -342,5 +226,92 @@ class A11yChecker:
                     element=str(link)[:100],
                     suggested_fix="Use descriptive text that makes sense out of context"
                 ))
+
+        return violations
+
+    def check_page_structure(self) -> list[A11yViolation]:
+        """
+        Check basic page structure (title, lang, headings).
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+
+        # Check for title tag
+        title = self.soup.find('title')
+        if not title or not title.string or not title.string.strip():
+            violations.append(A11yViolation(
+                severity="critical",
+                category="structure_semantics",
+                wcag_criterion="2.4.2",
+                check="missing_title",
+                message="Page is missing a title element",
+                element="<head>",
+                suggested_fix="Add <title> element with descriptive page title"
+            ))
+
+        # Check for lang attribute
+        html_tag = self.soup.find('html')
+        if not html_tag or not html_tag.has_attr('lang'):
+            violations.append(A11yViolation(
+                severity="critical",
+                category="structure_semantics",
+                wcag_criterion="3.1.1",
+                check="missing_lang",
+                message="HTML element missing lang attribute",
+                element=str(html_tag)[:100] if html_tag else "<html>",
+                suggested_fix="Add lang attribute (e.g., lang='en')"
+            ))
+
+        # Check for duplicate IDs
+        ids_seen = {}
+        for elem in self.soup.find_all(id=True):
+            elem_id = elem.get('id')
+            if elem_id in ids_seen:
+                violations.append(A11yViolation(
+                    severity="critical",
+                    category="structure_semantics",
+                    wcag_criterion="4.1.1",
+                    check="duplicate_id",
+                    message=f"Duplicate ID found: '{elem_id}'",
+                    element=str(elem)[:100],
+                    suggested_fix="Ensure all IDs are unique on the page"
+                ))
+            else:
+                ids_seen[elem_id] = True
+
+        return violations
+
+    def check_heading_structure(self) -> list[A11yViolation]:
+        """
+        Check for proper heading hierarchy (WCAG 1.3.1 Level A).
+
+        Returns:
+            List of violations found
+        """
+        violations = []
+
+        headings = self.soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+        if not headings:
+            return violations
+
+        prev_level = 0
+        for heading in headings:
+            level = int(heading.name[1])
+
+            # Check if we skipped levels (e.g., h1 -> h3)
+            if prev_level > 0 and level > prev_level + 1:
+                violations.append(A11yViolation(
+                    severity="serious",
+                    category="structure_semantics",
+                    wcag_criterion="1.3.1",
+                    check="skipped_heading_level",
+                    message=f"Heading level skipped from h{prev_level} to h{level}",
+                    element=str(heading),
+                    suggested_fix=f"Use h{prev_level + 1} instead of h{level}"
+                ))
+
+            prev_level = level
 
         return violations
